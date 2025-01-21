@@ -1,6 +1,8 @@
 import express from 'express';
 import AccessCode from '../models/accessCodeSchema.js';
 import { auth, checkRole } from '../middleware/auth.js';
+import Result from '../models/resultSchema.js';
+import Department from '../models/departmentSchema.js';
 
 const router = express.Router();
 
@@ -50,6 +52,47 @@ router.post('/init-code', auth, checkRole(['admin']), async (req, res) => {
         } else {
             res.json({ message: 'Access code already exists', code: existingCode.code });
         }
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Get all completed tests
+router.get('/completed-tests', auth, checkRole(['admin']), async (req, res) => {
+    try {
+        const results = await Result.find({}).sort({ points: -1 });
+        res.json(results);
+    } catch (error) {
+        console.error('Fetch completed tests error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Get all departments
+router.get('/departments', auth, checkRole(['admin']), async (req, res) => {
+    try {
+        const departments = await Department.find({});
+        res.json(departments);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Update department status
+router.post('/departments/update', auth, checkRole(['admin']), async (req, res) => {
+    try {
+        const { departments } = req.body;
+        
+        // Update each department's status
+        await Promise.all(departments.map(dept => 
+            Department.findOneAndUpdate(
+                { id: dept.id },
+                { isActive: dept.isActive },
+                { upsert: true }
+            )
+        ));
+        
+        res.json({ success: true });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
